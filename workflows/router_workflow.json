@@ -1,0 +1,155 @@
+{
+  "name": "Router Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger-id",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api-credential-id",
+          "name": "Telegram Bot Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/session",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $json.message.chat.id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-session-state-id",
+      "name": "Get Session State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Telegram Trigger').first().json.message?.text || '' }}",
+              "operation": "startsWith",
+              "value2": "/gym"
+            }
+          ]
+        }
+      },
+      "id": "route-message-id",
+      "name": "Route Message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/session",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ String($('Telegram Trigger').first().json.message?.chat?.id || 'default') }}\",\n  \"active_agent\": \"gym\"\n}",
+        "options": {}
+      },
+      "id": "set-gym-active-id",
+      "name": "Set Gym Agent Active",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [820, 160]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-chat-id",
+              "name": "chat_id",
+              "value": "={{ String($('Telegram Trigger').first().json.message.chat.id) }}",
+              "type": "string"
+            },
+            {
+              "id": "field-text",
+              "name": "text",
+              "value": "={{ $('Telegram Trigger').first().json.message.text.replace(/^\\/gym\\s*/i, '') || 'hello' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-input-id",
+      "name": "Prepare Agent Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "select-gym-workflow-id-after-import"
+      },
+      "id": "execute-gym-agent-id",
+      "name": "Execute Gym Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1280, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ String($('Telegram Trigger').first().json.message?.chat?.id || 'default') }}",
+        "text": "={{ $json.output || $json.text || 'Sorry, I could not process that request.' }}",
+        "additionalFields": {}
+      },
+      "id": "send-reply-id",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api-credential-id",
+          "name": "Telegram Bot Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Get Session State", "type": "main", "index": 0 }]]
+    },
+    "Get Session State": {
+      "main": [[{ "node": "Route Message", "type": "main", "index": 0 }]]
+    },
+    "Route Message": {
+      "main": [
+        [{ "node": "Set Gym Agent Active", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Agent Input", "type": "main", "index": 0 }]
+      ]
+    },
+    "Set Gym Agent Active": {
+      "main": [[{ "node": "Prepare Agent Input", "type": "main", "index": 0 }]]
+    },
+    "Prepare Agent Input": {
+      "main": [[{ "node": "Execute Gym Agent", "type": "main", "index": 0 }]]
+    },
+    "Execute Gym Agent": {
+      "main": [[{ "node": "Send Reply", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

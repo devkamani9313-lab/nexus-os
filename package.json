@@ -1,0 +1,17 @@
+{
+  "name": "telegram-agents-n8n",
+  "version": "1.0.0",
+  "description": "Telegram AI Agents controlled via n8n",
+  "type": "module",
+  "main": "start-services.js",
+  "scripts": {
+    "dev": "node start-services.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "localtunnel": "^2.0.2",
+    "pdfkit": "^0.19.1",
+    "sqlite3": "^5.1.7"
+  }
+}

@@ -1,0 +1,431 @@
+{
+  "name": "Gym Agent Sub-Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "gym-trigger-id",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "agent": "toolsAgent",
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are a fitness tracking assistant. You help the user log their workouts and nutrition, manage their weekly workout plan, and track their gym attendance and body weight.\n\nCRITICAL TOOL INSTRUCTIONS:\n- Log_Workout: To save a completed exercise. Requires exercise_name, weight, reps, sets.\n- Log_Nutrition: To save food. Requires food_name, calories, protein, carbs, fat. IMPORTANT: If the user only tells you the food name (e.g., '3 eggs') but NOT the macros, you MUST use your own knowledge to estimate them!\n- Save_Workout_Plan: To schedule a routine for a specific day. Requires day_of_week (e.g., 'Monday') and routine_text (e.g., 'Chest and Triceps: Bench press, incline flys...').\n- Get_Workout_Plan: To check the user's weekly schedule. Optional: day_of_week.\n- Log_Attendance: To mark the user as present at the gym. Requires status (e.g., 'Present', 'Rest Day').\n- Get_Attendance: To check the user's attendance history and streaks.\n- Log_Weight: To log the user's body weight. Requires weight (number).\n- Get_Weight_History: To fetch the user's body weight history.\n- Generate_PDF_Report: To generate and send a PDF report. Use report_type 'weight', 'workout', 'nutrition', or 'attendance' for database reports. Use report_type 'custom' with 'title' and 'content' to generate a PDF of ANY text content (diet plans, advice, summaries, etc). When the user asks for a PDF of something you generated, use 'custom' and pass the full text as 'content'."
+        }
+      },
+      "id": "gym-agent-id",
+      "name": "Gym Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        450,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": {
+          "baseURL": "https://api.deepseek.com/v1"
+        }
+      },
+      "id": "deepseek-model-id",
+      "name": "DeepSeek Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        350,
+        450
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "deepseek-api-credential-id",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "Log_Workout",
+        "description": "Call this tool to save a completed workout exercise. Requires chat_id, exercise_name, weight, reps, sets.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/workout',\n  body: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    exercise_name: query.exercise_name,\n    weight: query.weight,\n    reps: query.reps,\n    sets: query.sets\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"exercise_name\": \"Bench Press\",\n  \"weight\": \"60\",\n  \"reps\": \"10\",\n  \"sets\": \"3\"\n}"
+      },
+      "id": "tool-log-workout",
+      "name": "Log Workout",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        600,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Workout_History",
+        "description": "Call this tool to get past workout history. Optional parameter: exercise_name (string).",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://localhost:3000/api/workout',\n  qs: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    exercise_name: query.exercise_name || ''\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"exercise_name\": \"Bench Press\"\n}"
+      },
+      "id": "tool-get-workout",
+      "name": "Get Workout History",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        750,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Log_Nutrition",
+        "description": "Call this tool to log food eaten. Requires chat_id, food_name, calories, protein, carbs, fat.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/nutrition',\n  body: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    food_name: query.food_name,\n    calories: query.calories,\n    protein: query.protein,\n    carbs: query.carbs,\n    fat: query.fat\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"food_name\": \"Chicken Breast\",\n  \"calories\": \"250\",\n  \"protein\": \"50\",\n  \"carbs\": \"0\",\n  \"fat\": \"5\"\n}"
+      },
+      "id": "tool-log-nutrition",
+      "name": "Log Nutrition",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        600,
+        750
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Nutrition_History",
+        "description": "Call this tool to get today's nutrition history and total macros.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://localhost:3000/api/nutrition',\n  qs: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"date\": \"today\"\n}"
+      },
+      "id": "tool-get-nutrition",
+      "name": "Get Nutrition History",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        750,
+        750
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Save_Workout_Plan",
+        "description": "Call this tool to save or update the workout routine for a specific day. Requires day_of_week and routine_text.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/workout-plan',\n  body: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    day_of_week: query.day_of_week,\n    routine_text: query.routine_text\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"day_of_week\": \"Monday\",\n  \"routine_text\": \"Chest Day: Bench Press 3x10, Incline DB Press 3x10\"\n}"
+      },
+      "id": "tool-save-workout-plan",
+      "name": "Save Workout Plan",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        900,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Workout_Plan",
+        "description": "Call this tool to get the workout plan for a specific day or the whole week. Optional: day_of_week.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://localhost:3000/api/workout-plan',\n  qs: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    day_of_week: query.day_of_week || ''\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"day_of_week\": \"Monday\"\n}"
+      },
+      "id": "tool-get-workout-plan",
+      "name": "Get Workout Plan",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        900,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Log_Attendance",
+        "description": "Call this tool to log the user's gym attendance for today. Requires status.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/attendance',\n  body: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    status: query.status\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"status\": \"Present\"\n}"
+      },
+      "id": "tool-log-attendance",
+      "name": "Log Attendance",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Attendance",
+        "description": "Call this tool to get the user's recent gym attendance history to calculate streaks or counts.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://localhost:3000/api/attendance',\n  qs: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{}"
+      },
+      "id": "tool-get-attendance",
+      "name": "Get Attendance",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Log_Weight",
+        "description": "Call this tool to log the user's body weight for today. Requires weight (number).",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/weight',\n  body: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n    weight: query.weight\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"weight\": \"80.5\"\n}"
+      },
+      "id": "tool-log-weight",
+      "name": "Log Weight",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Weight_History",
+        "description": "Call this tool to get the user's recent body weight history.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({\n  method: 'GET',\n  url: 'http://localhost:3000/api/weight',\n  qs: {\n    chat_id: $('Execute Workflow Trigger').first().json.chat_id\n  },\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{}"
+      },
+      "id": "tool-get-weight-history",
+      "name": "Get Weight History",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        550
+      ]
+    },
+    {
+      "parameters": {
+        "name": "Generate_PDF_Report",
+        "description": "Call this tool to generate and send a PDF report. For database reports, use report_type 'weight', 'workout', 'nutrition', or 'attendance'. For any custom content (diet plans, advice, summaries), use report_type 'custom' with a 'title' and 'content' field.",
+        "language": "javaScript",
+        "jsCode": "const body = {\n  chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n  report_type: query.report_type\n};\nif (query.title) body.title = query.title;\nif (query.content) body.content = query.content;\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'http://localhost:3000/api/pdf',\n  body: body,\n  json: true\n});\nreturn JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"report_type\": \"custom\",\n  \"title\": \"Fat Loss Diet Plan\",\n  \"content\": \"Breakfast: 3 eggs...\\nLunch: Chicken breast...\"\n}"
+      },
+      "id": "tool-generate-pdf-report",
+      "name": "Generate PDF Report",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Execute Workflow Trigger').first().json.chat_id }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory-buffer-id",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        500,
+        450
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Workout": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Workout History": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Nutrition": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Nutrition History": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Workout Plan": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Workout Plan": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Attendance": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Attendance": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Weight": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weight History": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF Report": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Gym Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
