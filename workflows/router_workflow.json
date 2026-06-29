@@ -2,25 +2,47 @@
   "name": "Router Workflow",
   "nodes": [
     {
-      "parameters": { "updates": ["message"] },
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
       "id": "telegram-trigger",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [0, 300],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api-credential-id",
+          "name": "Telegram Bot Token"
+        }
+      }
     },
     {
       "parameters": {
         "url": "http://localhost:3000/api/session",
         "sendQuery": true,
-        "queryParameters": { "parameters": [ { "name": "chat_id", "value": "={{ String($json.message.chat.id) }}" } ] }
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ String($json.message.chat.id) }}"
+            }
+          ]
+        }
       },
       "id": "get-session",
       "name": "Get Session State",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -31,17 +53,30 @@
       "name": "Determine Route",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, 300]
+      "position": [
+        400,
+        300
+      ]
     },
     {
       "parameters": {
-        "conditions": { "boolean": [ { "value1": "={{ $json.isCommand }}", "value2": true } ] }
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isCommand }}",
+              "value2": true
+            }
+          ]
+        }
       },
       "id": "if-command",
       "name": "Is Command?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [600, 100]
+      "position": [
+        600,
+        100
+      ]
     },
     {
       "parameters": {
@@ -55,7 +90,10 @@
       "name": "Save New Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [800, 0]
+      "position": [
+        800,
+        0
+      ]
     },
     {
       "parameters": {
@@ -66,70 +104,131 @@
       "name": "Reply Command",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1000, 0],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api-credential-id",
+          "name": "Telegram Bot Token"
+        }
+      }
     },
     {
       "parameters": {
-        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "finance" } ] }
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.route }}",
+              "operation": "equal",
+              "value2": "finance"
+            }
+          ]
+        }
       },
       "id": "if-finance",
       "name": "Is Finance Agent?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [800, 300]
+      "position": [
+        800,
+        300
+      ]
     },
     {
-      "parameters": { "workflowId": "select-finance-workflow-id-after-import" },
+      "parameters": {
+        "workflowId": "select-finance-workflow-id-after-import"
+      },
       "id": "execute-finance",
       "name": "Execute Finance Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1000, 200]
+      "position": [
+        1000,
+        200
+      ]
     },
     {
-      "parameters": { "workflowId": "select-gym-workflow-id-after-import" },
+      "parameters": {
+        "workflowId": "select-gym-workflow-id-after-import"
+      },
       "id": "execute-gym",
       "name": "Execute Gym Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1000, 400]
+      "position": [
+        1000,
+        400
+      ]
     },
     {
       "parameters": {
-        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "news" } ] }
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.route }}",
+              "operation": "equal",
+              "value2": "news"
+            }
+          ]
+        }
       },
       "id": "if-news",
       "name": "Is News Agent?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [800, 500]
+      "position": [
+        800,
+        500
+      ]
     },
     {
-      "parameters": { "workflowId": "select-news-workflow-id-after-import" },
+      "parameters": {
+        "workflowId": "select-news-workflow-id-after-import"
+      },
       "id": "execute-news",
       "name": "Execute News Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1000, 600]
+      "position": [
+        1000,
+        600
+      ]
     },
     {
       "parameters": {
-        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "dsa" } ] }
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.route }}",
+              "operation": "equal",
+              "value2": "dsa"
+            }
+          ]
+        }
       },
       "id": "if-dsa",
       "name": "Is DSA Agent?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [800, 700]
+      "position": [
+        800,
+        700
+      ]
     },
     {
-      "parameters": { "workflowId": "select-dsa-workflow-id-after-import" },
+      "parameters": {
+        "workflowId": "select-dsa-workflow-id-after-import"
+      },
       "id": "execute-dsa",
       "name": "Execute DSA Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1000, 800]
+      "position": [
+        1000,
+        800
+      ]
     },
     {
       "parameters": {
@@ -143,42 +242,178 @@
       "name": "Send Reply",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1200, 300],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "position": [
+        1200,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api-credential-id",
+          "name": "Telegram Bot Token"
+        }
+      }
     }
   ],
   "connections": {
-    "Telegram Trigger": { "main": [[{"node": "Get Session State", "type": "main", "index": 0}]] },
-    "Get Session State": { "main": [[{"node": "Determine Route", "type": "main", "index": 0}]] },
-    "Determine Route": { "main": [[{"node": "Is Command?", "type": "main", "index": 0}]] },
-    "Is Command?": {
+    "Telegram Trigger": {
       "main": [
-        [{"node": "Save New Session", "type": "main", "index": 0}],
-        [{"node": "Is Finance Agent?", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Get Session State",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Save New Session": { "main": [[{"node": "Reply Command", "type": "main", "index": 0}]] },
+    "Get Session State": {
+      "main": [
+        [
+          {
+            "node": "Determine Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Route": {
+      "main": [
+        [
+          {
+            "node": "Is Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Command?": {
+      "main": [
+        [
+          {
+            "node": "Save New Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Finance Agent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save New Session": {
+      "main": [
+        [
+          {
+            "node": "Reply Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Is Finance Agent?": {
       "main": [
-        [{"node": "Execute Finance Agent", "type": "main", "index": 0}],
-        [{"node": "Is News Agent?", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Execute Finance Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is News Agent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Is News Agent?": {
       "main": [
-        [{"node": "Execute News Agent", "type": "main", "index": 0}],
-        [{"node": "Is DSA Agent?", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Execute News Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is DSA Agent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Is DSA Agent?": {
       "main": [
-        [{"node": "Execute DSA Agent", "type": "main", "index": 0}],
-        [{"node": "Execute Gym Agent", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Execute DSA Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Gym Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Execute Finance Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
-    "Execute News Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
-    "Execute DSA Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
-    "Execute Gym Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] }
+    "Execute Finance Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute News Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute DSA Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Gym Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   }
 }
