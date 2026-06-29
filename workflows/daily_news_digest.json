@@ -1,0 +1,279 @@
+{
+  "name": "Daily News Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "cronExpression": "0 8 * * *"
+            }
+          ]
+        },
+        "options": {
+          "timezone": "Asia/Kolkata"
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "mode": "set",
+        "properties": {
+          "values": [
+            {
+              "name": "text",
+              "value": "Provide a comprehensive summary of the top news stories in India for today and yesterday. Focus on major events, politics, markets, and social trends. Cover at least 5-7 major stories."
+            },
+            {
+              "name": "chat_id",
+              "value": "7731571949"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-india-input",
+      "name": "Set India Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "select-news-workflow-id-after-import",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "execute-india-news",
+      "name": "Fetch India News",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "7731571949",
+        "text": "={{ ($json.output || 'No India news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\"$2\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "additionalFields": {
+          "parseMode": "HTML"
+        }
+      },
+      "id": "send-india-telegram",
+      "name": "Send India News",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [600, 300],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+    },
+    {
+      "parameters": {
+        "mode": "set",
+        "properties": {
+          "values": [
+            {
+              "name": "text",
+              "value": "Provide a comprehensive summary of the top global/worldwide news stories for today and yesterday. Focus on major international events, global markets, geopolitical developments. Cover at least 5-7 major stories."
+            },
+            {
+              "name": "chat_id",
+              "value": "7731571949"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-world-input",
+      "name": "Set World Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "select-news-workflow-id-after-import",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "execute-world-news",
+      "name": "Fetch World News",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "7731571949",
+        "text": "={{ ($json.output || 'No worldwide news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\"$2\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "additionalFields": {
+          "parseMode": "HTML"
+        }
+      },
+      "id": "send-world-telegram",
+      "name": "Send World News",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1200, 300],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+    },
+    {
+      "parameters": {
+        "mode": "set",
+        "properties": {
+          "values": [
+            {
+              "name": "text",
+              "value": "Provide a comprehensive summary of the top Artificial Intelligence (AI) and technology news stories for today and yesterday. Cover research breakthroughs, model releases, tech industry moves."
+            },
+            {
+              "name": "chat_id",
+              "value": "7731571949"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-ai-input",
+      "name": "Set AI Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1400, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "select-news-workflow-id-after-import",
+        "options": {
+          "waitForCompletion": true
+        }
+      },
+      "id": "execute-ai-news",
+      "name": "Fetch AI News",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1600, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "7731571949",
+        "text": "={{ ($json.output || 'No AI news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\"$2\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "additionalFields": {
+          "parseMode": "HTML"
+        }
+      },
+      "id": "send-ai-telegram",
+      "name": "Send AI News",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1800, 300],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set India Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set India Prompt": {
+      "main": [
+        [
+          {
+            "node": "Fetch India News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch India News": {
+      "main": [
+        [
+          {
+            "node": "Send India News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send India News": {
+      "main": [
+        [
+          {
+            "node": "Set World Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set World Prompt": {
+      "main": [
+        [
+          {
+            "node": "Fetch World News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch World News": {
+      "main": [
+        [
+          {
+            "node": "Send World News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send World News": {
+      "main": [
+        [
+          {
+            "node": "Set AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Fetch AI News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch AI News": {
+      "main": [
+        [
+          {
+            "node": "Send AI News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
