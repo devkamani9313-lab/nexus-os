@@ -239,6 +239,220 @@ app.get('/api/weight', async (req, res) => {
   }
 });
 
+// --- Finance Agent Routes ---
+
+// Transactions
+app.post('/api/finance/transaction', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, type, category, amount, vendor } = data;
+    const date = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString();
+    await runSql(
+      `INSERT INTO finance_transactions (chat_id, date, type, category, amount, vendor) VALUES (?, ?, ?, ?, ?, ?)`,
+      [chat_id, date, type, category, amount, vendor]
+    );
+    res.json({ status: 'success', message: 'Transaction logged' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/finance/transaction', async (req, res) => {
+  try {
+    const { chat_id, days = 30 } = req.query;
+    const dateLimit = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const rows = await getSql(
+      `SELECT * FROM finance_transactions WHERE chat_id = ? AND date >= ? ORDER BY date DESC`,
+      [chat_id, dateLimit]
+    );
+    res.json({ status: 'success', data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debts
+app.post('/api/finance/debt', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, person_name, amount_owed, description } = data;
+    const date = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString();
+    await runSql(
+      `INSERT INTO finance_debts (chat_id, date, person_name, amount_owed, description) VALUES (?, ?, ?, ?, ?)`,
+      [chat_id, date, person_name, amount_owed, description]
+    );
+    res.json({ status: 'success', message: 'Debt logged' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/finance/debt', async (req, res) => {
+  try {
+    const { chat_id } = req.query;
+    const rows = await getSql(
+      `SELECT person_name, SUM(amount_owed) as total_owed FROM finance_debts WHERE chat_id = ? GROUP BY person_name`,
+      [chat_id]
+    );
+    res.json({ status: 'success', data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Wishlist
+app.post('/api/finance/wishlist', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, item_name, url, target_price } = data;
+    const date_added = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString();
+    await runSql(
+      `INSERT INTO finance_wishlist (chat_id, date_added, item_name, url, target_price) VALUES (?, ?, ?, ?, ?)`,
+      [chat_id, date_added, item_name, url, target_price]
+    );
+    res.json({ status: 'success', message: 'Wishlist item added' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/finance/wishlist', async (req, res) => {
+  try {
+    const { chat_id } = req.query;
+    let query = `SELECT * FROM finance_wishlist`;
+    let params = [];
+    if (chat_id) {
+      query += ` WHERE chat_id = ?`;
+      params.push(chat_id);
+    }
+    const rows = await getSql(query, params);
+    res.json({ status: 'success', data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Stock Trades
+app.post('/api/finance/trade', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, type, asset_symbol, shares, price } = data; // type: 'buy' or 'sell'
+    const date = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString();
+    
+    const existing = await getSql(`SELECT * FROM finance_portfolio WHERE chat_id = ? AND asset_symbol = ?`, [chat_id, asset_symbol]);
+    const currentShares = existing.length > 0 ? existing[0].amount_owned : 0;
+    const currentAvgPrice = existing.length > 0 ? existing[0].average_buy_price : 0;
+    
+    let profitLoss = 0;
+    let newShares = currentShares;
+    let newAvgPrice = currentAvgPrice;
+    
+    if (type.toLowerCase() === 'buy') {
+      newShares = currentShares + parseFloat(shares);
+      newAvgPrice = ((currentShares * currentAvgPrice) + (parseFloat(shares) * parseFloat(price))) / newShares;
+    } else if (type.toLowerCase() === 'sell') {
+      newShares = currentShares - parseFloat(shares);
+      profitLoss = (parseFloat(price) - currentAvgPrice) * parseFloat(shares);
+    }
+    
+    await runSql(
+      `INSERT INTO finance_stock_transactions (chat_id, date, type, asset_symbol, shares, price, profit_loss) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [chat_id, date, type.toLowerCase(), asset_symbol, shares, price, profitLoss]
+    );
+    
+    if (newShares <= 0) {
+      await runSql(`DELETE FROM finance_portfolio WHERE chat_id = ? AND asset_symbol = ?`, [chat_id, asset_symbol]);
+    } else {
+      if (existing.length > 0) {
+        await runSql(`UPDATE finance_portfolio SET amount_owned = ?, average_buy_price = ? WHERE chat_id = ? AND asset_symbol = ?`, [newShares, newAvgPrice, chat_id, asset_symbol]);
+      } else {
+        await runSql(`INSERT INTO finance_portfolio (chat_id, asset_symbol, amount_owned, average_buy_price) VALUES (?, ?, ?, ?)`, [chat_id, asset_symbol, newShares, newAvgPrice]);
+      }
+    }
+    
+    res.json({ status: 'success', message: 'Trade logged successfully', profit_loss: profitLoss, new_shares: newShares });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/finance/trade', async (req, res) => {
+  try {
+    const { chat_id, limit } = req.query;
+    const rows = await getSql(
+      `SELECT * FROM finance_stock_transactions WHERE chat_id = ? ORDER BY date DESC LIMIT ?`,
+      [chat_id, limit || 10]
+    );
+    res.json({ status: 'success', data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Portfolio
+app.post('/api/finance/portfolio', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, asset_symbol, amount_owned, average_buy_price } = data;
+    
+    const existing = await getSql(`SELECT id FROM finance_portfolio WHERE chat_id = ? AND asset_symbol = ?`, [chat_id, asset_symbol]);
+    
+    if (existing.length > 0) {
+      await runSql(
+        `UPDATE finance_portfolio SET amount_owned = ?, average_buy_price = ? WHERE chat_id = ? AND asset_symbol = ?`,
+        [amount_owned, average_buy_price, chat_id, asset_symbol]
+      );
+    } else {
+      await runSql(
+        `INSERT INTO finance_portfolio (chat_id, asset_symbol, amount_owned, average_buy_price) VALUES (?, ?, ?, ?)`,
+        [chat_id, asset_symbol, amount_owned, average_buy_price]
+      );
+    }
+    res.json({ status: 'success', message: 'Portfolio item logged' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get('/api/finance/portfolio', async (req, res) => {
+  try {
+    const { chat_id } = req.query;
+    const rows = await getSql(
+      `SELECT asset_symbol, SUM(amount_owned) as total_shares, SUM(amount_owned * average_buy_price) / SUM(amount_owned) as avg_price FROM finance_portfolio WHERE chat_id = ? GROUP BY asset_symbol HAVING total_shares > 0`,
+      [chat_id]
+    );
+
+    // Fetch real-time prices from Yahoo Finance
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const symbolQuery = rows[i].asset_symbol;
+        const searchRes = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbolQuery)}`);
+        const searchData = await searchRes.json();
+        if (searchData.quotes && searchData.quotes.length > 0) {
+          let ticker = searchData.quotes[0].symbol;
+          // Prioritize Indian stocks if found in the search results
+          const nsiQuote = searchData.quotes.find(q => q.exchange === 'NSI' || q.exchange === 'BSE');
+          if (nsiQuote) ticker = nsiQuote.symbol;
+
+          const priceRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`);
+          const priceData = await priceRes.json();
+          const livePrice = priceData.chart.result[0].meta.regularMarketPrice;
+          
+          rows[i].current_live_price = livePrice;
+          const totalInvested = rows[i].total_shares * rows[i].avg_price;
+          const currentValue = rows[i].total_shares * livePrice;
+          rows[i].profit_loss = currentValue - totalInvested;
+        }
+      } catch (e) {
+        console.error("Live price fetch failed for", rows[i].asset_symbol);
+      }
+    }
+
+    res.json({ status: 'success', data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PDF Generator Route
 app.post('/api/pdf', async (req, res) => {
   try {
@@ -275,7 +489,7 @@ app.post('/api/pdf', async (req, res) => {
     }
 
     // Generate PDF with buffered pages so we can add headers/footers at the end
-    const doc = new PDFDocument({ margin: 50, bufferPages: true });
+    const doc = new PDFDocument({ margins: { top: 120, bottom: 50, left: 50, right: 50 }, bufferPages: true });
     let buffers = [];
     doc.on('data', buffers.push.bind(buffers));
     
@@ -308,9 +522,6 @@ app.post('/api/pdf', async (req, res) => {
     
     // Helper to strip emojis and glitchy markdown separators
     const cleanText = (str) => str.replace(/[\u1000-\uFFFF]/g, '').replace(/=/g, '');
-
-    // Move start position down to account for the global header we will draw later
-    doc.moveDown(5);
 
     // Title Section
     doc.fillColor('#1e293b').fontSize(24).font('Helvetica-Bold').text(cleanText(title), { align: 'left' });
@@ -378,10 +589,6 @@ app.post('/api/pdf', async (req, res) => {
       doc.rect(20, 20, doc.page.width - 40, 80).fill('#0f172a');
       doc.fillColor('#38bdf8').fontSize(28).font('Helvetica-Bold').text('NEXUS OS', 20, 35, { width: doc.page.width - 40, align: 'center', characterSpacing: 2 });
       doc.fillColor('#94a3b8').fontSize(10).font('Helvetica').text('Automated Fitness Analytics', 20, 70, { width: doc.page.width - 40, align: 'center', characterSpacing: 1 });
-
-      // Premium Footer
-      doc.rect(20, doc.page.height - 60, doc.page.width - 40, 40).fill('#0f172a');
-      doc.fillColor('#94a3b8').fontSize(10).font('Helvetica').text(`Page ${i + 1} of ${pages.count} • Generated by Nexus OS`, 20, doc.page.height - 45, { width: doc.page.width - 40, align: 'center' });
     }
 
     doc.end();
@@ -391,5 +598,37 @@ app.post('/api/pdf', async (req, res) => {
   }
 });
 
+// DSA Solved Problems Tracking
+app.post('/api/dsa/solved', async (req, res) => {
+  try {
+    const data = parsePayload(req.body, req.query);
+    const { chat_id, platform, title_slug } = data;
+    await runSql(
+      `INSERT OR IGNORE INTO dsa_solved_problems (chat_id, platform, title_slug) VALUES (?, ?, ?)`,
+      [chat_id, platform.toLowerCase(), title_slug.toLowerCase()]
+    );
+    res.json({ status: 'success', message: 'DSA problem marked as solved' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/dsa/solved', async (req, res) => {
+  try {
+    const { chat_id, platform } = req.query;
+    let query = `SELECT title_slug FROM dsa_solved_problems WHERE chat_id = ?`;
+    const params = [chat_id];
+    if (platform) {
+      query += ` AND platform = ?`;
+      params.push(platform.toLowerCase());
+    }
+    const rows = await getSql(query, params);
+    res.json({ status: 'success', data: rows.map(r => r.title_slug) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = 3000;
 app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+

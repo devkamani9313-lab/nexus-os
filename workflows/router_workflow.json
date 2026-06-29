@@ -2,56 +2,46 @@
   "name": "Router Workflow",
   "nodes": [
     {
-      "parameters": {
-        "updates": ["message"],
-        "additionalFields": {}
-      },
-      "id": "telegram-trigger-id",
+      "parameters": { "updates": ["message"] },
+      "id": "telegram-trigger",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [200, 300],
-      "credentials": {
-        "telegramApi": {
-          "id": "telegram-api-credential-id",
-          "name": "Telegram Bot Token"
-        }
-      }
+      "position": [0, 300],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
     },
     {
       "parameters": {
         "url": "http://localhost:3000/api/session",
         "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "chat_id", "value": "={{ $json.message.chat.id }}" }
-          ]
-        },
-        "options": {}
+        "queryParameters": { "parameters": [ { "name": "chat_id", "value": "={{ String($json.message.chat.id) }}" } ] }
       },
-      "id": "get-session-state-id",
+      "id": "get-session",
       "name": "Get Session State",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const text = $('Telegram Trigger').first().json.message?.text?.trim() || '';\nconst chat_id = String($('Telegram Trigger').first().json.message?.chat?.id);\nconst active_agent = $('Get Session State').first().json.active_agent || 'gym';\n\nlet route = active_agent;\nlet isCommand = false;\nlet newAgent = null;\nlet replyText = '';\n\nif (text.toLowerCase().startsWith('/gym')) {\n  route = 'gym';\n  isCommand = true;\n  newAgent = 'gym';\n  replyText = '💪 Switched to Gym Agent! How can I help with your fitness today?';\n} else if (text.toLowerCase().startsWith('/finance') || text.toLowerCase().startsWith('/expense')) {\n  route = 'finance';\n  isCommand = true;\n  newAgent = 'finance';\n  replyText = '💰 Switched to Finance Agent! What would you like to track?';\n} else if (text.toLowerCase().startsWith('/news')) {\n  route = 'news';\n  isCommand = true;\n  newAgent = 'news';\n  replyText = '📰 Switched to News Agent! What do you want to search for?';\n} else if (text.toLowerCase().startsWith('/dsa')) {\n  route = 'dsa';\n  isCommand = true;\n  newAgent = 'dsa';\n  replyText = '👨‍💻 Switched to DSA Agent! Ready for some interview prep?';\n}\n\nreturn { json: { route, text, chat_id, isCommand, newAgent, replyText } };"
+      },
+      "id": "code-router",
+      "name": "Determine Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [400, 300]
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $('Telegram Trigger').first().json.message?.text || '' }}",
-              "operation": "startsWith",
-              "value2": "/gym"
-            }
-          ]
-        }
+        "conditions": { "boolean": [ { "value1": "={{ $json.isCommand }}", "value2": true } ] }
       },
-      "id": "route-message-id",
-      "name": "Route Message",
+      "id": "if-command",
+      "name": "Is Command?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [600, 300]
+      "position": [600, 100]
     },
     {
       "parameters": {
@@ -59,97 +49,133 @@
         "url": "http://localhost:3000/api/session",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"chat_id\": \"{{ String($('Telegram Trigger').first().json.message?.chat?.id || 'default') }}\",\n  \"active_agent\": \"gym\"\n}",
-        "options": {}
+        "jsonBody": "={\n  \"chat_id\": \"{{ $json.chat_id }}\",\n  \"active_agent\": \"{{ $json.newAgent }}\"\n}"
       },
-      "id": "set-gym-active-id",
-      "name": "Set Gym Agent Active",
+      "id": "set-session",
+      "name": "Save New Session",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [820, 160]
+      "position": [800, 0]
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "field-chat-id",
-              "name": "chat_id",
-              "value": "={{ String($('Telegram Trigger').first().json.message.chat.id) }}",
-              "type": "string"
-            },
-            {
-              "id": "field-text",
-              "name": "text",
-              "value": "={{ $('Telegram Trigger').first().json.message.text.replace(/^\\/gym\\s*/i, '') || 'hello' }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
+        "chatId": "={{ $('Determine Route').first().json.chat_id }}",
+        "text": "={{ $('Determine Route').first().json.replyText }}"
       },
-      "id": "prepare-input-id",
-      "name": "Prepare Agent Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [1050, 300]
+      "id": "reply-command",
+      "name": "Reply Command",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1000, 0],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
     },
     {
       "parameters": {
-        "workflowId": "select-gym-workflow-id-after-import"
+        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "finance" } ] }
       },
-      "id": "execute-gym-agent-id",
+      "id": "if-finance",
+      "name": "Is Finance Agent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 300]
+    },
+    {
+      "parameters": { "workflowId": "select-finance-workflow-id-after-import" },
+      "id": "execute-finance",
+      "name": "Execute Finance Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": { "workflowId": "select-gym-workflow-id-after-import" },
+      "id": "execute-gym",
       "name": "Execute Gym Agent",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1280, 300]
+      "position": [1000, 400]
     },
     {
       "parameters": {
-        "chatId": "={{ String($('Telegram Trigger').first().json.message?.chat?.id || 'default') }}",
-        "text": "={{ $json.output || $json.text || 'Sorry, I could not process that request.' }}",
-        "additionalFields": {}
+        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "news" } ] }
       },
-      "id": "send-reply-id",
+      "id": "if-news",
+      "name": "Is News Agent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 500]
+    },
+    {
+      "parameters": { "workflowId": "select-news-workflow-id-after-import" },
+      "id": "execute-news",
+      "name": "Execute News Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1000, 600]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [ { "value1": "={{ $json.route }}", "operation": "equal", "value2": "dsa" } ] }
+      },
+      "id": "if-dsa",
+      "name": "Is DSA Agent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 700]
+    },
+    {
+      "parameters": { "workflowId": "select-dsa-workflow-id-after-import" },
+      "id": "execute-dsa",
+      "name": "Execute DSA Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1000, 800]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Determine Route').first().json.chat_id }}",
+        "text": "={{ $json.output || $json.text || 'Done!' }}"
+      },
+      "id": "send-reply",
       "name": "Send Reply",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1500, 300],
-      "credentials": {
-        "telegramApi": {
-          "id": "telegram-api-credential-id",
-          "name": "Telegram Bot Token"
-        }
-      }
+      "position": [1200, 300],
+      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
     }
   ],
   "connections": {
-    "Telegram Trigger": {
-      "main": [[{ "node": "Get Session State", "type": "main", "index": 0 }]]
-    },
-    "Get Session State": {
-      "main": [[{ "node": "Route Message", "type": "main", "index": 0 }]]
-    },
-    "Route Message": {
+    "Telegram Trigger": { "main": [[{"node": "Get Session State", "type": "main", "index": 0}]] },
+    "Get Session State": { "main": [[{"node": "Determine Route", "type": "main", "index": 0}]] },
+    "Determine Route": { "main": [[{"node": "Is Command?", "type": "main", "index": 0}]] },
+    "Is Command?": {
       "main": [
-        [{ "node": "Set Gym Agent Active", "type": "main", "index": 0 }],
-        [{ "node": "Prepare Agent Input", "type": "main", "index": 0 }]
+        [{"node": "Save New Session", "type": "main", "index": 0}],
+        [{"node": "Is Finance Agent?", "type": "main", "index": 0}]
       ]
     },
-    "Set Gym Agent Active": {
-      "main": [[{ "node": "Prepare Agent Input", "type": "main", "index": 0 }]]
+    "Save New Session": { "main": [[{"node": "Reply Command", "type": "main", "index": 0}]] },
+    "Is Finance Agent?": {
+      "main": [
+        [{"node": "Execute Finance Agent", "type": "main", "index": 0}],
+        [{"node": "Is News Agent?", "type": "main", "index": 0}]
+      ]
     },
-    "Prepare Agent Input": {
-      "main": [[{ "node": "Execute Gym Agent", "type": "main", "index": 0 }]]
+    "Is News Agent?": {
+      "main": [
+        [{"node": "Execute News Agent", "type": "main", "index": 0}],
+        [{"node": "Is DSA Agent?", "type": "main", "index": 0}]
+      ]
     },
-    "Execute Gym Agent": {
-      "main": [[{ "node": "Send Reply", "type": "main", "index": 0 }]]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "meta": {
-    "templateCredsSetupCompleted": true
+    "Is DSA Agent?": {
+      "main": [
+        [{"node": "Execute DSA Agent", "type": "main", "index": 0}],
+        [{"node": "Execute Gym Agent", "type": "main", "index": 0}]
+      ]
+    },
+    "Execute Finance Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
+    "Execute News Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
+    "Execute DSA Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] },
+    "Execute Gym Agent": { "main": [[{"node": "Send Reply", "type": "main", "index": 0}]] }
   }
 }

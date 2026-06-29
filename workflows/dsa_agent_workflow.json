@@ -1,0 +1,191 @@
+{
+  "name": "DSA Agent Sub-Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-workflow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "agent": "toolsAgent",
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are a senior Software Engineer and strict Technical Interviewer. Your role is to help the user prepare for Data Structures and Algorithms (DSA) interviews.\n\nYou have tools to fetch problems from LeetCode/Codeforces, mark problems as solved, check contest schedules, and generate PDFs.\n\nRULES:\n1. NEVER give the exact code solution unless the user explicitly begs for it. Give hints instead.\n2. When asked for a problem, use Fetch_DSA_Problem. You can specify platform, company, topic, and count.\n3. If the user tells you they have solved a problem, use Mark_Problem_Solved to record it.\n4. Format your responses with markdown and use emojis."
+        }
+      },
+      "id": "agent",
+      "name": "DSA Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": {
+          "baseURL": "https://api.deepseek.com/v1"
+        }
+      },
+      "id": "deepseek-model",
+      "name": "DeepSeek Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "credentials": { "openAiApi": { "id": "deepseek-api-credential-id", "name": "DeepSeek API Key" } }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Execute Workflow Trigger').first().json.chat_id }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [350, 200]
+    },
+    {
+      "parameters": {
+        "name": "Fetch_DSA_Problem",
+        "description": "Fetches unsolved DSA problems from LeetCode or Codeforces. Arguments: platform ('leetcode' or 'codeforces'), count (number of problems), company (e.g. google), topic (e.g. dynamic-programming, array, string, graph).",
+        "language": "javaScript",
+        "jsCode": "const count = query.count || 1;\nconst company = query.company || '';\nconst topic = query.topic || '';\nconst platform = (query.platform || 'leetcode').toLowerCase();\nconst LEETCODE_USER = 'Kamani_Dev_S';\nconst CODEFORCES_USER = 'devkamani9313';\n\ntry {\n  const localSolvedRes = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'http://localhost:3000/api/dsa/solved',\n    qs: {\n      chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n      platform: platform\n    },\n    json: true\n  });\n  const solvedSet = new Set((localSolvedRes.data || []).map(s => s.toLowerCase()));\n\n  if (platform === 'codeforces') {\n    const userStatus = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://codeforces.com/api/user.status?handle=${CODEFORCES_USER}`,\n      json: true\n    });\n    \n    if (userStatus.status === 'OK') {\n      userStatus.result.forEach(sub => {\n        if (sub.verdict === 'OK' && sub.problem) {\n          solvedSet.add(`${sub.problem.contestId}-${sub.problem.index}`.toLowerCase());\n          if (sub.problem.name) solvedSet.add(sub.problem.name.toLowerCase());\n        }\n      });\n    }\n\n    const probData = await this.helpers.httpRequest({\n      method: 'GET',\n      url: 'https://codeforces.com/api/problemset.problems',\n      json: true\n    });\n    \n    if (probData.status !== 'OK') {\n      return 'Error fetching Codeforces problems';\n    }\n    \n    let problems = probData.result.problems || [];\n    \n    if (topic) {\n      const normTopic = topic.toLowerCase().trim();\n      problems = problems.filter(p => (p.tags || []).some(t => {\n        const normTag = t.toLowerCase().trim();\n        return normTag.includes(normTopic) || normTopic.includes(normTag);\n      }));\n    }\n    \n    problems = problems.filter(p => {\n      const codeKey = `${p.contestId}-${p.index}`.toLowerCase();\n      const nameKey = p.name ? p.name.toLowerCase() : '';\n      return !solvedSet.has(codeKey) && !solvedSet.has(nameKey);\n    });\n    problems = problems.sort(() => 0.5 - Math.random());\n    \n    const selected = problems.slice(0, count).map(p => ({ \n      platform: 'Codeforces',\n      title: p.name,\n      difficulty: p.rating ? `${p.rating} (Rating)` : 'Unknown',\n      link: `https://codeforces.com/problemset/problem/${p.contestId}/${p.index}`,\n      tags: p.tags || []\n    }));\n    \n    return JSON.stringify(selected);\n  } else {\n    const acData = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `https://alfa-leetcode-api.onrender.com/${LEETCODE_USER}/acSubmission`,\n      json: true\n    });\n    (acData.submission || []).forEach(s => {\n      if (s.titleSlug) solvedSet.add(s.titleSlug.toLowerCase());\n      if (s.title) solvedSet.add(s.title.toLowerCase());\n    });\n\n    let normalizedTopic = topic.toLowerCase().trim().replace(/[\\s-_]+/g, '');\n    let searchTags = [];\n    let requireMatrix = false;\n    if (normalizedTopic.includes('dp') || normalizedTopic.includes('dynamicprogramming')) {\n      searchTags.push('dynamic-programming');\n      if (normalizedTopic.includes('grid') || normalizedTopic.includes('matrix')) {\n        requireMatrix = true;\n      }\n    } else if (normalizedTopic.includes('graph')) {\n      searchTags.push('graph');\n    } else if (normalizedTopic.includes('tree')) {\n      if (normalizedTopic.includes('bst') || normalizedTopic.includes('search')) {\n        searchTags.push('binary-search-tree');\n      } else {\n        searchTags.push('tree', 'binary-tree');\n      }\n    } else if (normalizedTopic.includes('string')) {\n      searchTags.push('string');\n    } else if (normalizedTopic.includes('array')) {\n      searchTags.push('array');\n    } else if (normalizedTopic.includes('linkedlist')) {\n      searchTags.push('linked-list');\n    } else if (normalizedTopic.includes('binarysearch')) {\n      searchTags.push('binary-search');\n    } else if (normalizedTopic.includes('slidingwindow')) {\n      searchTags.push('sliding-window');\n    } else if (normalizedTopic.includes('pointer')) {\n      searchTags.push('two-pointers');\n    } else if (normalizedTopic) {\n      searchTags.push(topic.toLowerCase().trim().replace(/\\s+/g, '-'));\n    }\n\n    const tag = searchTags[0] || '';\n    const gqlQuery = `\n      query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {\n        problemsetQuestionList: questionList(\n          categorySlug: $categorySlug\n          limit: $limit\n          skip: $skip\n          filters: $filters\n        ) {\n          total: totalNum\n          questions: data {\n            title\n            titleSlug\n            difficulty\n            topicTags {\n              slug\n            }\n          }\n        }\n      }\n    `;\n\n    const firstPageRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://leetcode.com/graphql',\n      headers: {\n        'content-type': 'application/json',\n        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'\n      },\n      body: {\n        query: gqlQuery,\n        variables: {\n          categorySlug: '',\n          limit: 100,\n          skip: 0,\n          filters: tag ? { tags: [tag] } : {}\n        }\n      },\n      json: true\n    });\n\n    const totalProblems = firstPageRes.data?.problemsetQuestionList?.total || 0;\n    let problems = firstPageRes.data?.problemsetQuestionList?.questions || [];\n\n    if (totalProblems > 100) {\n      const skipOffsets = [];\n      for (let skip = 100; skip < totalProblems; skip += 100) {\n        skipOffsets.push(skip);\n      }\n      \n      const fetchPromises = skipOffsets.map(skip => {\n        return this.helpers.httpRequest({\n          method: 'POST',\n          url: 'https://leetcode.com/graphql',\n          headers: {\n            'content-type': 'application/json',\n            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'\n          },\n          body: {\n            query: gqlQuery,\n            variables: {\n              categorySlug: '',\n              limit: 100,\n              skip: skip,\n              filters: tag ? { tags: [tag] } : {}\n            }\n          },\n          json: true\n        });\n      });\n\n      const pageResults = await Promise.all(fetchPromises);\n      pageResults.forEach(res => {\n        const list = res.data?.problemsetQuestionList?.questions || [];\n        problems = problems.concat(list);\n      });\n    }\n\n    const filtered = problems.filter(p => {\n      const slugKey = p.titleSlug ? p.titleSlug.toLowerCase() : '';\n      const titleKey = p.title ? p.title.toLowerCase() : '';\n      if (solvedSet.has(slugKey) || solvedSet.has(titleKey)) return false;\n      \n      if (requireMatrix) {\n        const hasMatrixTag = (p.topicTags || []).some(t => t.slug === 'matrix' || t.slug === 'array');\n        const title = p.title.toLowerCase();\n        const matchesKeyword = title.includes('path') || title.includes('grid') || title.includes('matrix') || title.includes('square') || title.includes('dungeon') || title.includes('cherry');\n        return hasMatrixTag || matchesKeyword;\n      }\n      return true;\n    });\n\n    let selectedProblems = filtered;\n    if (selectedProblems.length === 0 && requireMatrix) {\n      selectedProblems = problems.filter(p => {\n        const slugKey = p.titleSlug ? p.titleSlug.toLowerCase() : '';\n        const titleKey = p.title ? p.title.toLowerCase() : '';\n        return !solvedSet.has(slugKey) && !solvedSet.has(titleKey);\n      });\n    }\n    \n    if (company) {\n      selectedProblems = selectedProblems.sort(() => 0.5 - Math.random());\n    }\n    \n    const selected = selectedProblems.slice(0, count).map(p => ({ \n      platform: 'LeetCode',\n      title: p.title,\n      difficulty: p.difficulty,\n      link: `https://leetcode.com/problems/${p.titleSlug}/`\n    }));\n    \n    return JSON.stringify(selected);\n  }\n} catch (e) {\n  return 'Error fetching problem: ' + e.message;\n}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"platform\": \"leetcode\",\n  \"count\": 1,\n  \"company\": \"google\",\n  \"topic\": \"dynamic-programming\"\n}"
+      },
+      "id": "tool-fetch-problem",
+      "name": "Fetch_DSA_Problem",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [450, 200]
+    },
+    {
+      "parameters": {
+        "name": "Fetch_Contests",
+        "description": "Fetches upcoming competitive programming contests from Codeforces.",
+        "language": "javaScript",
+        "jsCode": "try {\n  const data = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://codeforces.com/api/contest.list',\n    json: true\n  });\n  if (data.status !== 'OK') return 'Error from Codeforces API';\n  \n  let upcoming = data.result.filter(c => c.phase === 'BEFORE').reverse();\n  upcoming = upcoming.slice(0, 5);\n  \n  const schedule = upcoming.map(c => {\n    const date = new Date(c.startTimeSeconds * 1000);\n    const localTimeStr = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }) + ' IST';\n    return {\n      name: c.name,\n      startTime: localTimeStr,\n      durationHours: c.durationSeconds / 3600\n    };\n  });\n  return JSON.stringify(schedule);\n} catch(e) {\n  return 'Failed to fetch contests: ' + e.message;\n}"
+      },
+      "id": "tool-fetch-contests",
+      "name": "Fetch_Contests",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "name": "Generate_PDF",
+        "description": "Generates a PDF document and sends it via Telegram. Arguments: textContent (markdown string to convert to PDF).",
+        "language": "javaScript",
+        "jsCode": "try {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://localhost:3000/api/pdf',\n    body: {\n      chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n      report_type: 'custom',\n      title: query.title || 'DSA Interview Prep Notes',\n      content: query.textContent || query.content\n    },\n    json: true\n  });\n  return JSON.stringify(response);\n} catch(e) {\n  return 'PDF generation failed: ' + e.message;\n}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"textContent\": \"# DSA Notes\\n\\n1. **Dynamic Programming**: Solved 2 problems.\"\n}"
+      },
+      "id": "tool-generate-pdf",
+      "name": "Generate_PDF",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [750, 200]
+    },
+    {
+      "parameters": {
+        "name": "Mark_Problem_Solved",
+        "description": "Marks a DSA problem as solved so it won't be recommended again. Arguments: platform ('leetcode' or 'codeforces'), titleSlug (e.g. 'two-sum', '1883-B').",
+        "language": "javaScript",
+        "jsCode": "try {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://localhost:3000/api/dsa/solved',\n    body: {\n      chat_id: $('Execute Workflow Trigger').first().json.chat_id,\n      platform: query.platform || 'leetcode',\n      title_slug: query.titleSlug\n    },\n    json: true\n  });\n  return 'Problem marked as solved successfully!';\n} catch(e) {\n  return 'Failed to mark problem as solved: ' + e.message;\n}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"platform\": \"leetcode\",\n  \"titleSlug\": \"two-sum\"\n}"
+      },
+      "id": "tool-mark-solved",
+      "name": "Mark_Problem_Solved",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [900, 200]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch_DSA_Problem": {
+      "ai_tool": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch_Contests": {
+      "ai_tool": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate_PDF": {
+      "ai_tool": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark_Problem_Solved": {
+      "ai_tool": [
+        [
+          {
+            "node": "DSA Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

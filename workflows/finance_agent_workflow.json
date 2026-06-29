@@ -1,0 +1,218 @@
+{
+  "name": "Finance Agent Sub-Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "finance-trigger-id",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [ 200, 240 ]
+    },
+    {
+      "parameters": {
+        "agent": "toolsAgent",
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are a finance tracking assistant. You help the user log their income and expenses, track debts, manage wishlists, and monitor their investment portfolio.\n\nCRITICAL TOOL INSTRUCTIONS:\n- Log_Transaction: Log income or expense. Requires type ('income' or 'expense'), category, amount, vendor.\n- Get_Analytics: Get transaction history for X days.\n- Log_Debt: Track debts. RULE 1: Positive amount = they owe user money. RULE 2: Negative amount = user owes them money. RULE 3: If you are PAYING BACK a debt, you must log the MATHEMATICAL INVERSE of the balance! (e.g., if Get_Debts says balance is -1000, you must log +1000 to bring it to 0). ALWAYS call Get_Debts before and after Log_Debt to guarantee the math equals 0 when settled.\n- Get_Debts: Gets total balances. If someone's total_owed is 0, the debt is FULLY SETTLED (they owe nothing). If they are not in the list, they owe nothing.\n- Add_To_Wishlist: Track an item. Requires item_name, url, target_price.\n- Trade_Stock: Buy or sell a stock. Requires type ('buy' or 'sell'), asset_symbol, shares, and price. This AUTOMATICALLY logs the transaction, calculates profit/loss, and updates the user's portfolio holdings!\n- Get_Trade_History: Fetch the user's recent stock buy/sell transactions.\n- Check_Portfolio: Get the user's investment portfolio. This returns real-time market prices and profit_loss. Present the current value, live price, and state if they are in profit or loss.\n- Generate_PDF_Report: To generate a PDF. Use report_type 'custom' with 'title' and 'content'."
+        }
+      },
+      "id": "finance-agent-id",
+      "name": "Finance Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [ 450, 240 ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": { "baseURL": "https://api.deepseek.com/v1" }
+      },
+      "id": "deepseek-model-finance",
+      "name": "DeepSeek Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [ 350, 450 ],
+      "credentials": {
+        "openAiApi": {
+          "id": "deepseek-api-credential-id",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Execute Workflow Trigger').first().json.chat_id }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory-buffer-finance",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [ 500, 450 ]
+    },
+    {
+      "parameters": {
+        "name": "Log_Transaction",
+        "description": "Log an income or expense. Requires type, category, amount, vendor.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'POST', url: 'http://localhost:3000/api/finance/transaction', body: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, type: query.type, category: query.category, amount: query.amount, vendor: query.vendor }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"type\":\"expense\",\"category\":\"Food\",\"amount\":15,\"vendor\":\"Chipotle\"}"
+      },
+      "id": "tool-log-transaction",
+      "name": "Log Transaction",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 600, 350 ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Analytics",
+        "description": "Get transaction history. Optional: days.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'GET', url: 'http://localhost:3000/api/finance/transaction', qs: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, days: query.days || 30 }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"days\":30}"
+      },
+      "id": "tool-get-analytics",
+      "name": "Get Analytics",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 600, 500 ]
+    },
+    {
+      "parameters": {
+        "name": "Log_Debt",
+        "description": "Log a debt. person_name, amount_owed, description.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'POST', url: 'http://localhost:3000/api/finance/debt', body: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, person_name: query.person_name, amount_owed: query.amount_owed, description: query.description }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"person_name\":\"Rahul\",\"amount_owed\":50,\"description\":\"Dinner\"}"
+      },
+      "id": "tool-log-debt",
+      "name": "Log Debt",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 750, 350 ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Debts",
+        "description": "Get a list of everyone who owes money.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'GET', url: 'http://localhost:3000/api/finance/debt', qs: { chat_id: $('Execute Workflow Trigger').first().json.chat_id }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{}"
+      },
+      "id": "tool-get-debts",
+      "name": "Get Debts",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 750, 500 ]
+    },
+    {
+      "parameters": {
+        "name": "Add_To_Wishlist",
+        "description": "Add an item to the wishlist monitor. item_name, url, target_price.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'POST', url: 'http://localhost:3000/api/finance/wishlist', body: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, item_name: query.item_name, url: query.url, target_price: query.target_price }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"item_name\":\"Headphones\",\"url\":\"https://amazon.com/...\",\"target_price\":250}"
+      },
+      "id": "tool-add-wishlist",
+      "name": "Add To Wishlist",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 900, 350 ]
+    },
+    {
+      "parameters": {
+        "name": "Trade_Stock",
+        "description": "Buy or sell a stock. type ('buy'/'sell'), asset_symbol, shares, price.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'POST', url: 'http://localhost:3000/api/finance/trade', body: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, type: query.type, asset_symbol: query.asset_symbol, shares: query.shares, price: query.price }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"type\":\"buy\",\"asset_symbol\":\"AAPL\",\"shares\":10,\"price\":150}"
+      },
+      "id": "tool-trade-stock",
+      "name": "Trade Stock",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 1050, 350 ]
+    },
+    {
+      "parameters": {
+        "name": "Check_Portfolio",
+        "description": "Get portfolio holdings.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'GET', url: 'http://localhost:3000/api/finance/portfolio', qs: { chat_id: $('Execute Workflow Trigger').first().json.chat_id }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{}"
+      },
+      "id": "tool-check-portfolio",
+      "name": "Check Portfolio",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 1050, 500 ]
+    },
+    {
+      "parameters": {
+        "name": "Generate_PDF_Report",
+        "description": "Generate a PDF report. report_type='custom', title, content.",
+        "language": "javaScript",
+        "jsCode": "const body = { chat_id: $('Execute Workflow Trigger').first().json.chat_id, report_type: query.report_type }; if (query.title) body.title = query.title; if (query.content) body.content = query.content; const response = await this.helpers.httpRequest({ method: 'POST', url: 'http://localhost:3000/api/pdf', body: body, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"report_type\":\"custom\",\"title\":\"Finance Report\",\"content\":\"Content...\"}"
+      },
+      "id": "tool-generate-pdf",
+      "name": "Generate PDF Report",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 1200, 350 ]
+    },
+    {
+      "parameters": {
+        "name": "Get_Trade_History",
+        "description": "Get stock trade history. Optional limit.",
+        "language": "javaScript",
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'GET', url: 'http://localhost:3000/api/finance/trade', qs: { chat_id: $('Execute Workflow Trigger').first().json.chat_id, limit: query.limit || 10 }, json: true }); return JSON.stringify(response);",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"limit\":5}"
+      },
+      "id": "tool-get-trade-history",
+      "name": "Get Trade History",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 1200, 500 ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [ { "node": "Finance Agent", "type": "main", "index": 0 } ]
+      ]
+    },
+    "DeepSeek Model": {
+      "ai_languageModel": [
+        [ { "node": "Finance Agent", "type": "ai_languageModel", "index": 0 } ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [ { "node": "Finance Agent", "type": "ai_memory", "index": 0 } ]
+      ]
+    },
+    "Log Transaction": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Get Analytics": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Log Debt": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Get Debts": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Add To Wishlist": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Trade Stock": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Check Portfolio": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Get Trade History": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] },
+    "Generate PDF Report": { "ai_tool": [ [ { "node": "Finance Agent", "type": "ai_tool", "index": 0 } ] ] }
+  }
+}

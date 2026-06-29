@@ -109,6 +109,90 @@ db.serialize(() => {
   `, (err) => {
     if (err) console.error('Failed to create attendance_logs table:', err.message);
   });
+  // Create finance transactions table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS finance_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      date TEXT,
+      type TEXT,
+      category TEXT,
+      amount REAL,
+      vendor TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create finance_transactions table:', err.message);
+  });
+
+  // Create finance debts table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS finance_debts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      date TEXT,
+      person_name TEXT,
+      amount_owed REAL,
+      description TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create finance_debts table:', err.message);
+  });
+
+  // Create finance wishlist table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS finance_wishlist (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      date_added TEXT,
+      item_name TEXT,
+      url TEXT,
+      target_price REAL
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create finance_wishlist table:', err.message);
+  });
+
+  // Create finance portfolio table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS finance_portfolio (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      asset_symbol TEXT,
+      amount_owned REAL,
+      average_buy_price REAL
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create finance_portfolio table:', err.message);
+  });
+
+  // Create finance stock transactions table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS finance_stock_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      date TEXT,
+      type TEXT,
+      asset_symbol TEXT,
+      shares REAL,
+      price REAL,
+      profit_loss REAL
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create finance_stock_transactions table:', err.message);
+  });
+
+  // Create dsa solved problems table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS dsa_solved_problems (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id TEXT,
+      platform TEXT,
+      title_slug TEXT,
+      UNIQUE(chat_id, platform, title_slug)
+    )
+  `, (err) => {
+    if (err) console.error('Failed to create dsa_solved_problems table:', err.message);
+  });
 });
 
 db.close((err) => {

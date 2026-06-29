@@ -1,0 +1,114 @@
+{
+  "name": "News Agent Sub-Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "news-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [ 200, 300 ]
+    },
+    {
+      "parameters": {
+        "agent": "toolsAgent",
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "You are an elite, highly intelligent News Agent and researcher. You have access to real-time internet data.\n\nCRITICAL INSTRUCTIONS:\n- You can fetch live news via the Search_Live_News tool. Always use this to answer questions about recent events, politics, markets, tech, etc.\n- If a user sends a URL or asks you to read an article, use the Scrape_Website tool.\n- You can explain things simply (ELI5), check facts, look for bias, analyze market sentiment, find historical context, and summarize raw data.\n- Present information beautifully. Use bolding and emojis. Remove clickbait. Never mention your tools, just act like you inherently know the news."
+        }
+      },
+      "id": "news-agent",
+      "name": "News Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [ 450, 300 ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-chat",
+        "options": { "baseURL": "https://api.deepseek.com/v1" }
+      },
+      "id": "deepseek-model-news",
+      "name": "DeepSeek Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [ 350, 500 ],
+      "credentials": {
+        "openAiApi": {
+          "id": "deepseek-api-credential-id",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Execute Workflow Trigger').first().json.chat_id }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory-buffer-news",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [ 500, 500 ]
+    },
+    {
+      "parameters": {
+        "name": "Search_Live_News",
+        "description": "Searches real-time global and local news. Provide a short 'topic' query.",
+        "language": "javaScript",
+        "jsCode": "try {\n  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query.topic)}&hl=en-US&gl=US&ceid=US:en`;\n  const response = await this.helpers.httpRequest({ method: 'GET', url: url });\n  const items = response.match(/<item>([\\s\\S]*?)<\\/item>/g) || [];\n  const results = items.slice(0, 15).map(item => {\n    const title = item.match(/<title>([\\s\\S]*?)<\\/title>/)?.[1] || 'No title';\n    const link = item.match(/<link>([\\s\\S]*?)<\\/link>/)?.[1] || 'No link';\n    const pubDate = item.match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/)?.[1] || 'No date';\n    return { title: title.replace(/<!\\[CDATA\\[(.*?)\\]\\]>/, '$1'), link, pubDate };\n  });\n  return JSON.stringify(results);\n} catch (err) {\n  return 'Error fetching news: ' + err.message;\n}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"topic\":\"SpaceX launch\"}"
+      },
+      "id": "tool-search-news",
+      "name": "Search Live News",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 700, 300 ]
+    },
+    {
+      "parameters": {
+        "name": "Scrape_Website",
+        "description": "Visit a URL and return the raw text content of the page.",
+        "language": "javaScript",
+        "jsCode": "try {\n  const response = await this.helpers.httpRequest({ method: 'GET', url: query.url });\n  const text = response.replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '').replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').substring(0, 30000);\n  return text;\n} catch (err) {\n  return 'Failed to scrape URL: ' + err.message;\n}",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\"url\":\"https://example.com/article\"}"
+      },
+      "id": "tool-scrape-url",
+      "name": "Scrape Website",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [ 700, 450 ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [ { "node": "News Agent", "type": "main", "index": 0 } ]
+      ]
+    },
+    "DeepSeek Model": {
+      "ai_languageModel": [
+        [ { "node": "News Agent", "type": "ai_languageModel", "index": 0 } ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [ { "node": "News Agent", "type": "ai_memory", "index": 0 } ]
+      ]
+    },
+    "Search Live News": {
+      "ai_tool": [
+        [ { "node": "News Agent", "type": "ai_tool", "index": 0 } ]
+      ]
+    },
+    "Scrape Website": {
+      "ai_tool": [
+        [ { "node": "News Agent", "type": "ai_tool", "index": 0 } ]
+      ]
+    }
+  }
+}
