@@ -6,8 +6,13 @@
         "rule": {
           "interval": [
             {
-              "field": "cronExpression",
-              "cronExpression": "0 8 * * *"
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAt": [
+                {
+                  "time": "08:00"
+                }
+              ]
             }
           ]
         },
