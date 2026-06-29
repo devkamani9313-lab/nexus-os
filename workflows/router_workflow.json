@@ -134,7 +134,10 @@
     {
       "parameters": {
         "chatId": "={{ $('Determine Route').first().json.chat_id }}",
-        "text": "={{ $json.output || $json.text || 'Done!' }}"
+        "text": "={{ ($json.output || $json.text || 'Done!').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\"$2\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "additionalFields": {
+          "parseMode": "HTML"
+        }
       },
       "id": "send-reply",
       "name": "Send Reply",
