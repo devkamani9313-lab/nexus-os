@@ -1,21 +1,21 @@
 # Production Deployment Guide: Node.js API + SQLite + n8n on IONOS VPS
 
-This guide walks you through deploying your entire system on your new IONOS Ubuntu 24.04 VPS (`87.106.255.44`).
+This guide walks you through deploying your entire system on a fresh Ubuntu 24.04 VPS.
 
 ---
 
 ## Prerequisites (Before starting)
 You need a domain name (e.g., from GoDaddy, Namecheap, or IONOS).
-Point **two subdomains** to your VPS IP (`87.106.255.44`) by adding **DNS A Records**:
-* `n8n.yourdomain.com` ➔ `87.106.255.44`
-* `api.yourdomain.com` ➔ `87.106.255.44`
+Point **two subdomains** to your VPS IP by adding **DNS A Records**:
+* `n8n.yourdomain.com` ➔ `<your_vps_ip>`
+* `api.yourdomain.com` ➔ `<your_vps_ip>`
 
 ---
 
 ## Step 1: Connect to your VPS via SSH
 Open PowerShell or Terminal on your computer and run:
 ```bash
-ssh root@87.106.255.44
+ssh root@<your_vps_ip>
 ```
 *Type `yes` when prompted, and enter your root password.*
 
@@ -61,8 +61,7 @@ Paste your production settings (replace the values with your actual tokens/keys)
 TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
 DEEPSEEK_API_KEY="your_deepseek_api_key"
 PORT=3000
-DATABASE_URL="C:/Users/WIN 10/Desktop/Dev OS VS/database.db" # Wait, on Linux VPS, use:
-# DATABASE_URL="/root/dev-os/database.db"
+DATABASE_URL="/root/dev-os/database.db"
 ```
 *Press `Ctrl + O` then `Enter` to save, and `Ctrl + X` to exit.*
 
