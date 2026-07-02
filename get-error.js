@@ -29,24 +29,27 @@ function findStringInPool(jsonData) {
       parsed.forEach((item, idx) => {
         // Search inside strings
         if (typeof item === 'string') {
-          checkAndPrint(item, `String at Index ${idx}`, idx);
+          if (checkAndPrint(item, `String at Index ${idx}`, idx)) {
+            found = true;
+          }
         }
         // Search inside objects
         else if (item && typeof item === 'object') {
           const stringified = JSON.stringify(item);
-          if (stringified.length > 150 && (stringified.includes('output') || stringified.includes('text'))) {
-            // Let's print the object keys
-            console.log(`\n[Object at Index ${idx} (Length: ${stringified.length})] Keys:`, Object.keys(item));
-            
+          if (stringified.length > 100) {
             // Check all string properties of the object
             for (const key in item) {
               if (typeof item[key] === 'string') {
-                checkAndPrint(item[key], `Object[${key}] at Index ${idx}`, idx);
+                if (checkAndPrint(item[key], `Object[${key}] at Index ${idx}`, idx)) {
+                  found = true;
+                }
               } else if (item[key] && typeof item[key] === 'object') {
                 // Check nested string properties
                 for (const subKey in item[key]) {
                   if (typeof item[key][subKey] === 'string') {
-                    checkAndPrint(item[key][subKey], `Object[${key}][${subKey}] at Index ${idx}`, idx);
+                    if (checkAndPrint(item[key][subKey], `Object[${key}][${subKey}] at Index ${idx}`, idx)) {
+                      found = true;
+                    }
                   }
                 }
               }
@@ -54,6 +57,10 @@ function findStringInPool(jsonData) {
           }
         }
       });
+      
+      if (!found) {
+        console.log("No long text matching criteria was found.");
+      }
     } else {
       console.log("Data is not an array.");
     }
@@ -63,26 +70,23 @@ function findStringInPool(jsonData) {
 }
 
 function checkAndPrint(text, label, index) {
-  const lower = text.toLowerCase();
-  // We want to find the actual news text which is long and has titles/bullet points
-  if (text.length > 200 && (lower.includes('news') || lower.includes('india') || lower.includes('world') || lower.includes('global'))) {
-    // Exclude the formula itself
-    if (text.includes('.replace(') && text.includes('$(')) return;
+  // We want to find the actual text which is long
+  if (text.length > 150) {
+    // Exclude the n8n formula itself
+    if (text.includes('.replace(') && text.includes('$(')) return false;
     
     console.log(`\n========================================`);
-    console.log(`FOUND NEWS TEXT (${label}, Length: ${text.length}):`);
+    console.log(`FOUND RAW TEXT (${label}, Length: ${text.length}):`);
     console.log(`========================================`);
     console.log(text);
     console.log(`========================================`);
     validateHtml(text);
+    return true;
   }
+  return false;
 }
 
 function validateHtml(html) {
-  // Let's check for basic Telegram HTML violations:
-  // 1. Unescaped ampersands or angle brackets
-  // 2. Mismatched quotes
-  
   let hasError = false;
   
   // 1. Check for unescaped ampersands outside of entities
@@ -90,7 +94,6 @@ function validateHtml(html) {
   if (ampersands) {
     hasError = true;
     console.log(`❌ ERROR: Found ${ampersands.length} unescaped ampersands (&)!`);
-    // Print lines with ampersands
     const lines = html.split('\n');
     lines.forEach((line, idx) => {
       if (line.match(/&(?![a-zA-Z0-9#]+;)/)) {
