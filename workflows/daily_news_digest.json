@@ -1,5 +1,7 @@
 {
   "name": "Daily News Digest",
+  "active": true,
+  "id": "Iip84QAJag1CZ1OC",
   "nodes": [
     {
       "parameters": {
@@ -51,7 +53,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-news-workflow-id-after-import",
+        "workflowId": "NOb3BMQIWJJs0fKy",
         "options": {
           "waitForCompletion": true
         }
@@ -75,7 +77,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [600, 300],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "credentials": { "telegramApi": { "id": "O81djDHosPhx6jYW", "name": "Telegram account 2" } }
     },
     {
       "parameters": {
@@ -102,7 +104,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-news-workflow-id-after-import",
+        "workflowId": "NOb3BMQIWJJs0fKy",
         "options": {
           "waitForCompletion": true
         }
@@ -126,7 +128,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [1200, 300],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "credentials": { "telegramApi": { "id": "O81djDHosPhx6jYW", "name": "Telegram account 2" } }
     },
     {
       "parameters": {
@@ -153,7 +155,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-news-workflow-id-after-import",
+        "workflowId": "NOb3BMQIWJJs0fKy",
         "options": {
           "waitForCompletion": true
         }
@@ -177,7 +179,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [1800, 300],
-      "credentials": { "telegramApi": { "id": "telegram-api-credential-id", "name": "Telegram Bot Token" } }
+      "credentials": { "telegramApi": { "id": "O81djDHosPhx6jYW", "name": "Telegram account 2" } }
     }
   ],
   "connections": {

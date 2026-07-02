@@ -1,5 +1,6 @@
 {
   "name": "Router Workflow",
+  "id": "61KAx6PJqYvaM2ai",
   "nodes": [
     {
       "parameters": {
@@ -17,8 +18,8 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "telegram-api-credential-id",
-          "name": "Telegram Bot Token"
+          "id": "O81djDHosPhx6jYW",
+          "name": "Telegram account 2"
         }
       }
     },
@@ -110,8 +111,8 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "telegram-api-credential-id",
-          "name": "Telegram Bot Token"
+          "id": "O81djDHosPhx6jYW",
+          "name": "Telegram account 2"
         }
       }
     },
@@ -138,7 +139,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-finance-workflow-id-after-import"
+        "workflowId": "45YW57REvMW23HuF"
       },
       "id": "execute-finance",
       "name": "Execute Finance Agent",
@@ -151,7 +152,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-gym-workflow-id-after-import"
+        "workflowId": "PFbwrxtyQDenaHhi"
       },
       "id": "execute-gym",
       "name": "Execute Gym Agent",
@@ -185,7 +186,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-news-workflow-id-after-import"
+        "workflowId": "NOb3BMQIWJJs0fKy"
       },
       "id": "execute-news",
       "name": "Execute News Agent",
@@ -219,7 +220,7 @@
     },
     {
       "parameters": {
-        "workflowId": "select-dsa-workflow-id-after-import"
+        "workflowId": "VwKsTBRvIqo5vleR"
       },
       "id": "execute-dsa",
       "name": "Execute DSA Agent",
@@ -233,7 +234,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Determine Route').first().json.chat_id }}",
-        "text": "={{ ($json.output || $json.text || 'Done!').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\"$2\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "text": "={{ ($json.output || $json.text || 'Done!').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\\"$2\\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
         "additionalFields": {
           "parseMode": "HTML"
         }
@@ -248,8 +249,8 @@
       ],
       "credentials": {
         "telegramApi": {
-          "id": "telegram-api-credential-id",
-          "name": "Telegram Bot Token"
+          "id": "O81djDHosPhx6jYW",
+          "name": "Telegram account 2"
         }
       }
     }
