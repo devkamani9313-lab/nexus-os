@@ -67,9 +67,9 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "={{ ($json.output || 'No India news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\\"$2\\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "text": "=${ $json.output || 'No India news found.' }",
         "additionalFields": {
-          "parseMode": "HTML"
+          "parseMode": "Markdown"
         }
       },
       "id": "send-india-telegram",
@@ -118,9 +118,9 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "={{ ($json.output || 'No worldwide news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\\"$2\\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "text": "=${ $json.output || 'No worldwide news found.' }",
         "additionalFields": {
-          "parseMode": "HTML"
+          "parseMode": "Markdown"
         }
       },
       "id": "send-world-telegram",
@@ -169,9 +169,9 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "={{ ($json.output || 'No AI news found.').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\\*\\\\*(.*?)\\\\*\\\\*/g, '<b>$1</b>').replace(/\\\\[(.*?)\\\\]\\\\((.*?)\\\\)/g, '<a href=\\\"$2\\\">$1</a>').replace(/`(.*?)`/g, '<code>$1</code>') }}",
+        "text": "=${ $json.output || 'No AI news found.' }",
         "additionalFields": {
-          "parseMode": "HTML"
+          "parseMode": "Markdown"
         }
       },
       "id": "send-ai-telegram",
