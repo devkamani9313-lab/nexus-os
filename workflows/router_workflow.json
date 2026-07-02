@@ -234,7 +234,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Determine Route').first().json.chat_id }}",
-        "text": "=${ $json.output || $json.text || 'Done!' }",
+        "text": "={{ $json.output || $json.text || 'Done!' }}",
         "additionalFields": {
           "parseMode": "Markdown"
         }

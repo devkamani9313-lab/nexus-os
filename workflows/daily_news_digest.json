@@ -67,7 +67,7 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "=${ $json.output || 'No India news found.' }",
+        "text": "={{ $json.output || 'No India news found.' }}",
         "additionalFields": {
           "parseMode": "Markdown"
         }
@@ -118,7 +118,7 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "=${ $json.output || 'No worldwide news found.' }",
+        "text": "={{ $json.output || 'No worldwide news found.' }}",
         "additionalFields": {
           "parseMode": "Markdown"
         }
@@ -169,7 +169,7 @@
     {
       "parameters": {
         "chatId": "7731571949",
-        "text": "=${ $json.output || 'No AI news found.' }",
+        "text": "={{ $json.output || 'No AI news found.' }}",
         "additionalFields": {
           "parseMode": "Markdown"
         }
