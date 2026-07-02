@@ -25,86 +25,98 @@ function findStringInPool(jsonData) {
     if (Array.isArray(parsed)) {
       console.log(`\n=== String Pool Search (Array length: ${parsed.length}) ===`);
       
-      // Let's print all strings in the pool that are longer than 50 characters
-      // or contain HTML formatting tags like <b>, <a>, <code> or &amp;
-      let foundNews = false;
+      let found = false;
       parsed.forEach((item, idx) => {
+        // Search inside strings
         if (typeof item === 'string') {
-          const lower = item.toLowerCase();
-          
-          // Look for ampersands, links, or general news content indicators
-          if (item.length > 100 && (lower.includes('<a href') || lower.includes('<b>') || lower.includes('news') || lower.includes('&amp;'))) {
-            foundNews = true;
-            console.log(`\n[Found Text at Index ${idx} (Length: ${item.length})]:`);
-            console.log("----------------------------------------");
-            console.log(item);
-            console.log("----------------------------------------");
+          checkAndPrint(item, `String at Index ${idx}`, idx);
+        }
+        // Search inside objects
+        else if (item && typeof item === 'object') {
+          const stringified = JSON.stringify(item);
+          if (stringified.length > 150 && (stringified.includes('output') || stringified.includes('text'))) {
+            // Let's print the object keys
+            console.log(`\n[Object at Index ${idx} (Length: ${stringified.length})] Keys:`, Object.keys(item));
             
-            // Let's also validate the HTML of this item locally in the script!
-            validateHtml(item);
+            // Check all string properties of the object
+            for (const key in item) {
+              if (typeof item[key] === 'string') {
+                checkAndPrint(item[key], `Object[${key}] at Index ${idx}`, idx);
+              } else if (item[key] && typeof item[key] === 'object') {
+                // Check nested string properties
+                for (const subKey in item[key]) {
+                  if (typeof item[key][subKey] === 'string') {
+                    checkAndPrint(item[key][subKey], `Object[${key}][${subKey}] at Index ${idx}`, idx);
+                  }
+                }
+              }
+            }
           }
         }
       });
-      
-      if (!foundNews) {
-        // If we didn't find any long matching strings, print any string that has links
-        console.log("No long news strings found. Printing all strings containing 'http' or '<':");
-        parsed.forEach((item, idx) => {
-          if (typeof item === 'string' && (item.includes('http') || item.includes('<'))) {
-            console.log(`Index ${idx}:`, item);
-          }
-        });
-      }
     } else {
-      console.log("Data is not an array. Root keys:", Object.keys(parsed));
+      console.log("Data is not an array.");
     }
   } catch (e) {
     console.error("Failed to parse execution data JSON:", e.message);
   }
 }
 
+function checkAndPrint(text, label, index) {
+  const lower = text.toLowerCase();
+  // We want to find the actual news text which is long and has titles/bullet points
+  if (text.length > 200 && (lower.includes('news') || lower.includes('india') || lower.includes('world') || lower.includes('global'))) {
+    // Exclude the formula itself
+    if (text.includes('.replace(') && text.includes('$(')) return;
+    
+    console.log(`\n========================================`);
+    console.log(`FOUND NEWS TEXT (${label}, Length: ${text.length}):`);
+    console.log(`========================================`);
+    console.log(text);
+    console.log(`========================================`);
+    validateHtml(text);
+  }
+}
+
 function validateHtml(html) {
   // Let's check for basic Telegram HTML violations:
-  // 1. Unclosed tags
-  // 2. Nested tags that aren't allowed
-  // 3. Unescaped ampersands or angle brackets
+  // 1. Unescaped ampersands or angle brackets
+  // 2. Mismatched quotes
   
-  // Telegram only allows: <b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <span class="...">, <a href="...">, <code>, <pre>
-  // Let's check if there are other tags
-  const tags = html.match(/<[^>]+>/g) || [];
-  console.log(`\n[HTML Validation Check] Found ${tags.length} HTML tags.`);
-  
-  // Check if every tag is valid and closed
-  const stack = [];
   let hasError = false;
   
-  // Simple check for unescaped ampersands outside of entities
-  // An ampersand must be followed by a valid entity like amp;, lt;, gt;, quot;, apos; or #123;
+  // 1. Check for unescaped ampersands outside of entities
   const ampersands = html.match(/&(?![a-zA-Z0-9#]+;)/g);
   if (ampersands) {
     hasError = true;
-    console.log(`❌ WARNING: Found ${ampersands.length} unescaped ampersands (&) that are not part of an entity! Telegram requires all ampersands to be escaped as &amp;`);
+    console.log(`❌ ERROR: Found ${ampersands.length} unescaped ampersands (&)!`);
+    // Print lines with ampersands
+    const lines = html.split('\n');
+    lines.forEach((line, idx) => {
+      if (line.match(/&(?![a-zA-Z0-9#]+;)/)) {
+        console.log(`   Line ${idx+1}: "${line.trim()}"`);
+      }
+    });
   }
   
-  // Check for unescaped < or > (any < or > that is not part of a valid HTML tag)
-  // Let's check if there are any < that aren't followed by a valid tag name or /
+  // 2. Check for unescaped < or > (any < or > that is not part of a valid HTML tag)
   const badLessThans = html.match(/<(?!\/?(b|strong|i|em|u|ins|s|strike|del|span|a|code|pre)\b)/gi);
   if (badLessThans) {
     hasError = true;
-    console.log("❌ WARNING: Found invalid or unescaped '<' characters! Any '<' must be escaped as &lt; unless it is a valid tag like <b> or <a>.");
-    console.log("Bad matches:", badLessThans);
+    console.log("❌ ERROR: Found invalid or unescaped '<' characters!");
+    console.log("   Matches:", badLessThans);
   }
   
-  // Check for nested quotes in <a href="...">
-  const aTags = html.match(/<a\s+href="([^"]*)"/gi) || [];
+  // 3. Check for nested/invalid quotes in <a> tags
   const rawATags = html.match(/<a\s+href=[^>]+/gi) || [];
-  if (aTags.length !== rawATags.length) {
+  const validATags = html.match(/<a\s+href="[^"]*"/gi) || [];
+  if (rawATags.length !== validATags.length) {
     hasError = true;
-    console.log(`❌ WARNING: Mismatch in <a> tag href attributes! Some links might have unescaped quotes or spaces inside their href attribute.`);
-    console.log("Raw tags found:", rawATags);
+    console.log(`❌ ERROR: Mismatch in <a> tag href attributes! Some links might have unescaped quotes or spaces inside their href attribute.`);
+    console.log("   Found raw <a> tags:", rawATags);
   }
   
   if (!hasError) {
-    console.log("✅ No obvious unescaped HTML characters or entity violations found in this string.");
+    console.log("✅ No obvious HTML violations found in this string.");
   }
 }
